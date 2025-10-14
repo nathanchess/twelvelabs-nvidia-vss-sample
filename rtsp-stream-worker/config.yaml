@@ -1,0 +1,12 @@
+hlsPartDuration: 1s
+hlsSegmentDuration: 4s
+paths:
+  Closeup-Work-1:
+    rtspTransport: tcp
+    source: null
+  Dirt-Work-1:
+    rtspTransport: tcp
+    source: null
+  Pipe-Work-1:
+    rtspTransport: tcp
+    source: null

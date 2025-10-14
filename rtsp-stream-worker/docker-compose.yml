@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  rtsp-stream-worker:
+    build: .
+    container_name: rtsp-stream-worker
+    image: rtsp-stream-worker:latest
+    ports:
+      - "8000:8000"    # FastAPI server
+    env_file:
+      - .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: always
