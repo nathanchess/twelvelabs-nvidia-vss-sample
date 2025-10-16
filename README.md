@@ -1,10 +1,12 @@
 ## NVIDIA GTC 2025 — TwelveLabs × NVIDIA VSS: Real‑Time Manufacturing Compliance
 
-![NVIDIA](frontend/public/nvidia.jpg)
-![TwelveLabs](frontend/public/twelvelabs.png)
+<div align="center">
+  <img src="frontend/public/nvidia.jpg" width="120" height="60" alt="NVIDIA">
+  <img src="frontend/public/twelvelabs.png" width="120" height="60" alt="TwelveLabs">
+</div>
 
 ### Live Video Demo
-- Watch the end‑to‑end demo: [YouTube — Live Video Demo](https://youtu.be/opYVHSc77ZQ)
+[![Live Video Demo](https://img.youtube.com/vi/opYHSc77ZQ/0.jpg)](https://youtu.be/opYHSc77ZQ)
 
 ### Architecture
 ![System Architecture](assets/architecture.png)
@@ -29,7 +31,7 @@ Key features:
 - `assets/`: Images and diagrams (e.g., `architecture.png`)
 
 ### Related NVIDIA VSS Blueprint
-- Forked baseline and concepts are informed by NVIDIA’s blueprint: [NVIDIA VSS Repo (fork)](https://github.com/james-le-twelve-labs/nvidia-vss)
+- Forked baseline and concepts are informed by NVIDIA's blueprint: [NVIDIA VSS Repo (fork)](https://github.com/james-le-twelve-labs/nvidia-vss)
 
 ### Getting Started (High‑Level)
 1) See `frontend/README.md` to configure environment variables and run the UI.
@@ -38,5 +40,3 @@ Key features:
 
 ### Notes on Credentials
 Environment variables are required for AWS, TwelveLabs, and NVIDIA VSS endpoints. Place them in the respective `.env` files as described in sub‑module READMEs. Treat any shared keys as development‑only and rotate for production.
-
-
