@@ -2,7 +2,7 @@
 
 <div align="center" style="display: flex; align-items: center; justify-content: center; gap: 20px;">
   <img src="frontend/public/nvidia.jpg" width="120" height="100" alt="NVIDIA">
-  <img src="frontend/public/twelvelabs.png" width="120" height="60" alt="TwelveLabs">
+  <img src="frontend/public/twelvelabs.png" width="120" height="100" alt="TwelveLabs">
 </div>
 
 ### Live Video Demo
