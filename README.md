@@ -6,7 +6,9 @@
 </div>
 
 ### Live Video Demo
-[![Live Video Demo](https://img.youtube.com/vi/opYVHSc77ZQ/maxresdefault.jpg)](https://www.youtube.com/watch?v=opYHSc77ZQ&feature=youtu.be)
+<div align="center">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/opYVHSc77ZQ" title="Live Video Demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+</div>
 
 ### Architecture
 ![System Architecture](assets/architecture.png)
