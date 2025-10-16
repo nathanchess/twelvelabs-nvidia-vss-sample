@@ -1,6 +1,6 @@
 ## NVIDIA GTC 2025 — TwelveLabs × NVIDIA VSS: Real‑Time Manufacturing Compliance
 
-<div align="center">
+<div align="center" style="display: flex; align-items: center; justify-content: center; gap: 20px;">
   <img src="frontend/public/nvidia.jpg" width="120" height="100" alt="NVIDIA">
   <img src="frontend/public/twelvelabs.png" width="120" height="60" alt="TwelveLabs">
 </div>
