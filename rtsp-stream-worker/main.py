@@ -459,23 +459,57 @@ async def get_stream(request: fastapi.Request):
 async def _upload_chunk(chunk_file_path: str):
     """Upload a single chunk file to NVIDIA VSS asynchronously"""
     
-    # Prepare form data for multipart upload
-    data = aiohttp.FormData()
-    with open(chunk_file_path, 'rb') as f:
-        data.add_field('file', f, filename=os.path.basename(chunk_file_path), content_type='video/mp4')
-        data.add_field('purpose', 'vision')
-        data.add_field('media_type', 'video')
+    try:
+        # Check if file exists and get its size
+        if not os.path.exists(chunk_file_path):
+            print(f"[SERVER] Error: Chunk file does not exist: {chunk_file_path}")
+            return None
+            
+        file_size = os.path.getsize(chunk_file_path)
+        print(f"[SERVER] Uploading chunk: {os.path.basename(chunk_file_path)} (size: {file_size} bytes)")
         
-        async with aiohttp.ClientSession() as session:
-            async with session.post(f"{os.getenv('NVIDIA_VSS_BASE_URL', '').strip('"')}/files", data=data) as response:
-                if not response.ok:
-                    print(f"[SERVER] Error uploading chunk to NVIDIA VSS: {response.status}")
-                    return None
-                
-                response_data = await response.json()
-                chunk_file_id = response_data['id']
-                print(f"[SERVER] Uploaded chunk to NVIDIA VSS: {chunk_file_id}")
-                return chunk_file_id
+        # Get NVIDIA VSS URL
+        nvidia_vss_url = os.getenv('NVIDIA_VSS_BASE_URL', '').strip('"')
+        if not nvidia_vss_url:
+            print(f"[SERVER] Error: NVIDIA_VSS_BASE_URL environment variable not set")
+            return None
+            
+        print(f"[SERVER] Using NVIDIA VSS URL: {nvidia_vss_url}")
+        
+        # Prepare form data for multipart upload
+        data = aiohttp.FormData()
+        with open(chunk_file_path, 'rb') as f:
+            data.add_field('file', f, filename=os.path.basename(chunk_file_path), content_type='video/mp4')
+            data.add_field('purpose', 'vision')
+            data.add_field('media_type', 'video')
+            
+            timeout = aiohttp.ClientTimeout(total=3000)  # 50 minute timeout for large files
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(f"{nvidia_vss_url}/files", data=data) as response:
+                    if not response.ok:
+                        response_text = await response.text()
+                        print(f"[SERVER] Error uploading chunk to NVIDIA VSS: {response.status}")
+                        print(f"[SERVER] Response body: {response_text}")
+                        return None
+                    
+                    try:
+                        response_data = await response.json()
+                        if 'id' not in response_data:
+                            print(f"[SERVER] Error: Response missing 'id' field: {response_data}")
+                            return None
+                            
+                        chunk_file_id = response_data['id']
+                        print(f"[SERVER] Successfully uploaded chunk to NVIDIA VSS: {chunk_file_id}")
+                        return chunk_file_id
+                    except Exception as json_error:
+                        print(f"[SERVER] Error parsing JSON response: {json_error}")
+                        response_text = await response.text()
+                        print(f"[SERVER] Raw response: {response_text}")
+                        return None
+                    
+    except Exception as e:
+        print(f"[SERVER] Exception during chunk upload: {str(e)}")
+        return None
 
 async def add_stream(request: fastapi.Request):
 
@@ -523,15 +557,15 @@ async def process_video_background(stream_name: str, s3_video_key: str):
         print(f"[BACKGROUND] Downloaded video file to {video_file_path}")
 
         # Process video with CV pipeline in thread pool to avoid blocking
-        processing_status[stream_name]["status"] = "processing"
-        processing_status[stream_name]["message"] = "Running computer vision analysis..."
-        processed_video_file_path = await process_video_cv_async(video_file_path)
-        print(f"[BACKGROUND] Processed video file to {processed_video_file_path}")
+        #processing_status[stream_name]["status"] = "processing"
+        #processing_status[stream_name]["message"] = "Running computer vision analysis..."
+        #processed_video_file_path = await process_video_cv_async(video_file_path)
+        #print(f"[BACKGROUND] Processed video file to {processed_video_file_path}")
 
         # Chunk the video file
         processing_status[stream_name]["status"] = "chunking"
         processing_status[stream_name]["message"] = "Chunking video into segments..."
-        chunk_output_folder = await chunk_video_async(processed_video_file_path, stream_name)
+        chunk_output_folder = await chunk_video_async(video_file_path, stream_name)
         print(f"[BACKGROUND] Chunked video into {chunk_output_folder}")
 
         # Upload chunks to NVIDIA VSS
@@ -548,7 +582,7 @@ async def process_video_background(stream_name: str, s3_video_key: str):
 
         # Clean up temporary files
         os.remove(video_file_path)
-        os.remove(processed_video_file_path)
+        #os.remove(processed_video_file_path)
         for chunk_file in os.listdir(chunk_output_folder):
             os.remove(os.path.join(chunk_output_folder, chunk_file))
         os.rmdir(chunk_output_folder)
@@ -635,28 +669,61 @@ async def chunk_video_async(processed_video_file_path: str, stream_name: str) ->
     if ffmpeg_chunk_process.returncode != 0:
         raise Exception(f"Error chunking video file: {ffmpeg_chunk_process.returncode}")
 
+    # Verify that chunk files were actually created
+    chunk_files = [f for f in os.listdir(chunk_output_folder) if f.endswith('.mp4')]
+    if not chunk_files:
+        raise Exception(f"No chunk files were created in {chunk_output_folder}")
+    
+    print(f"[BACKGROUND] Successfully created {len(chunk_files)} chunk files")
+    for chunk_file in chunk_files:
+        chunk_path = os.path.join(chunk_output_folder, chunk_file)
+        file_size = os.path.getsize(chunk_path)
+        print(f"  - {chunk_file}: {file_size} bytes")
+
     return chunk_output_folder
 
 async def upload_chunks_async(chunk_output_folder: str):
     """Upload all chunks asynchronously"""
     
+    # List all chunk files
+    chunk_files = [f for f in os.listdir(chunk_output_folder) if f.endswith('.mp4')]
+    print(f"[BACKGROUND] Found {len(chunk_files)} chunk files to upload")
+    
+    if not chunk_files:
+        print(f"[BACKGROUND] No chunk files found in {chunk_output_folder}")
+        return
+    
     upload_tasks = []
-    for chunk_file in os.listdir(chunk_output_folder):
-        if chunk_file.endswith('.mp4'):  # Only process video files
-            chunk_file_path = os.path.join(chunk_output_folder, chunk_file)
-            upload_tasks.append(asyncio.create_task(_upload_chunk(chunk_file_path)))
+    for chunk_file in chunk_files:
+        chunk_file_path = os.path.join(chunk_output_folder, chunk_file)
+        upload_tasks.append(asyncio.create_task(_upload_chunk(chunk_file_path)))
 
     # Wait for all uploads to complete
     results = await asyncio.gather(*upload_tasks, return_exceptions=True)
     
-    # Log results
-    successful_uploads = sum(1 for result in results if result is not None and not isinstance(result, Exception))
-    failed_uploads = len(results) - successful_uploads
+    # Log detailed results
+    successful_uploads = []
+    failed_uploads = []
     
-    print(f"[BACKGROUND] Upload completed: {successful_uploads} successful, {failed_uploads} failed")
+    for i, result in enumerate(results):
+        chunk_file = chunk_files[i]
+        if result is not None and not isinstance(result, Exception):
+            successful_uploads.append((chunk_file, result))
+        else:
+            error_msg = str(result) if isinstance(result, Exception) else "Unknown error"
+            failed_uploads.append((chunk_file, error_msg))
     
-    if failed_uploads > 0:
-        print(f"[BACKGROUND] Some chunks failed to upload. Check logs above for details.")
+    print(f"[BACKGROUND] Upload completed: {len(successful_uploads)} successful, {len(failed_uploads)} failed")
+    
+    if successful_uploads:
+        print(f"[BACKGROUND] Successful uploads:")
+        for chunk_file, file_id in successful_uploads:
+            print(f"  - {chunk_file} -> {file_id}")
+    
+    if failed_uploads:
+        print(f"[BACKGROUND] Failed uploads:")
+        for chunk_file, error in failed_uploads:
+            print(f"  - {chunk_file}: {error}")
 
 async def get_processing_status(request: fastapi.Request):
     """Get the processing status of a video"""
